@@ -1,0 +1,145 @@
+---
+title: "Exam"
+author: "Giovanni Esposito"
+date: '2022-07-05'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+```{r}
+source("misc.R")
+predict.regsubsets<-function(object,newdata,id,...){
+  form<-as.formula(object$call[[2]])
+  mat<-model.matrix(form,newdata)
+  coefi<-coef(object,id=id)
+  y.hat<-mat[,names(coefi)]%*%coefi
+  return(y.hat)
+}
+load("SSL_sitting.RData")
+```
+
+
+
+```{r}
+library(klaR)
+library(class)
+library(MASS)
+library(leaps)
+library(glmnet)
+library(pls)
+library(tree)
+library(randomForest)
+library(gbm)
+library(e1071)
+
+```
+
+
+```{r}
+~.~.
+```
+EX1
+
+```{r}
+m_dia <- 152
+m_nondia <- 118
+var <- 144
+x0 <- 128
+
+p_dia <- 0.7*dnorm(x0,152, sqrt(144))/((0.7*dnorm(x0,152, sqrt(144)))+0.3*dnorm(x0,118,sqrt(144)))
+p_dia
+```
+EX 2
+
+```{r}
+exp(-7.2+(0.21*26)+(1.6))
+
+p_x <- exp(-7.2+(0.21*26)+(1.6))/(1 + exp(-7.2+(0.21*26)+(1.6)))
+
+p_x
+```
+
+
+```{r}
+str(audit7.te)
+str(audit7.tr)
+dim(audit7.tr)
+```
+EX 1 R
+Grow a classification tree on the training set. Is there any pure node?
+
+Yes they are PARA_B < 0.38, Money_Value > 5.69, District > 3 24, SCORE_B > 3 25, PARA_A > 0.945
+
+```{r }
+audit7.tr$clas <- as.factor(audit7.tr$clas)
+set.seed(1234)
+clas_tree <- tree(clas~.,audit7.tr)
+clas_tree
+```
+
+EX 2
+Plot the tree. What is the most important variable in identifying the two classes?
+
+The most important variable for identifing the classes is PARA_A
+
+```{r}
+plot(clas_tree)
+text(clas_tree, pretty = 0)
+```
+EX 3 Estimate the test error.
+
+The test error is 0.01808786
+
+```{r}
+audit7.te$clas <- as.factor(audit7.te$clas)
+str(audit7.te)
+yhat <- predict(clas_tree, newdata = audit7.te, type = "class")
+misc(yhat, audit7.te$clas)
+
+```
+EX4 Prune the tree via 10-fold cross validation and estimate the test error. Has pruning the tree improved the accuracy?
+
+No it hasn't(they have the same test error), I assume that the full tree wasn't too deep so pruning wasn't necessary at all 
+
+```{r}
+set.seed(1234)
+cv_tree <- cv.tree(clas_tree, FUN = prune.misclass, K = 10)
+cv_tree$dev
+best_size <- cv_tree$size[which.min(cv_tree$dev)]
+prune_tree <- prune.misclass(clas_tree, best = best_size)
+
+yhat_pr <- predict(prune_tree, newdata = audit7.te, type ='class')
+misc(yhat_pr, audit7.te$clas)
+
+```
+
+EX 5
+Why is pruning important? What is the role of parameter α?
+Pruning is crucial because the decision trees in general have good performance on the train set but not on the test. This is due the fact that they overfit and became too complex on our data. Pruning prevents this by pruning the less important parts of the tree by performing a sort of penalized estimation in which alpha is the penalization term for high dimensional trees. For this reason it is crucial and we found it(like above) by cross validation
+
+ EX 6 Perform Bagging on the training data. Evaluate the variable importance in terms of average decrease of Gini index. Is the same variable of point 2?
+ 
+ Yes it is always PARA_A  that has the biggest average decrease of Gini index.
+```{r}
+p <- ncol(audit7.tr)-1
+bag <- randomForest(clas~.,audit7.tr, mtry = p, importance = T)
+importance(bag)
+```
+EX 7 Estimate the test error. Has bagging improved over a single tree? Comment on that.
+
+The test error is 0.01550388.
+Yes it has improved its performance on test. This is due the fact that in general bagging has capacity of generalization. In this case we also see that there is a variable that has a lot of importance(PARA_A may be a strong predictor) and in my opinion using a randomForest will led to even better results because RF is used to decorrelate the estimates which we will obtain if we have a stronger predictor as in this case
+
+```{r}
+yhat_b <- predict(bag, newdata = audit7.te, type = 'class')
+misc(yhat_b, audit7.te$clas)
+
+```
+
+
+
